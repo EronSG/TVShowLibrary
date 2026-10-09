@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>My TV Show Library</title>
+</head>
+<body>
+  <h1>My TV Show Library</h1>
+
+  <h3>Add a TV show</h3>
+  <input id="title" placeholder="Title" />
+  <input id="genres" placeholder="Genres (comma-separated)" />
+  <input id="status" placeholder="Status" />
+  <input id="premiered" type="date" aria-label="Premiere date" />
+  <input id="rating" type="number" min="0" max="10" step="0.1" placeholder="Rating (0-10)" />
+  <input id="network" placeholder="Network / streaming service" />
+  <button onclick="addShow()">Add TV show</button>
+
+  <h3>My TV shows</h3>
+  <ul id="shows"></ul>
+
+  <h3>Look up online</h3>
+  <input id="search" placeholder="TV show title to search" />
+  <button onclick="lookup()">Search TVmaze</button>
+  <ul id="results"></ul>
+  <p><small>Show information provided by <a href="https://www.tvmaze.com/" target="_blank" rel="noopener noreferrer">TVmaze</a>.</small></p>
+
+  <script>
+    async function request(url, options) {
+      const response = await fetch(url, options);
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || 'Request failed.');
+      return data;
+    }
+
+    function makeText(tag, text) {
+      const node = document.createElement(tag);
+      node.textContent = text == null ? '' : String(text);
+      return node;
+    }
+
+    async function loadShows() {
+      const list = document.getElementById('shows');
+      list.replaceChildren();
+      try {
+        const shows = await request('/api/shows');
+        if (!shows.length) {
+          list.appendChild(makeText('li', 'No TV shows in your collection yet.'));
+          return;
+        }
+        shows.forEach((show) => {
+          const li = document.createElement('li');
+          li.appendChild(makeText('span', `${show.title} | Genres: ${(show.genres || []).join(', ') || 'Unknown'} | Status: ${show.status || 'Unknown'} | Premiered: ${show.premiered || 'Unknown'} | Rating: ${show.rating ?? 'Not rated'} | Network: ${show.network || 'Unknown'} `));
+          const edit = document.createElement('a');
+          edit.href = `edit.html?id=${encodeURIComponent(show.id)}`;
+          edit.textContent = 'Edit';
+          li.append(' ', edit, ' ');
+          const remove = document.createElement('button');
+          remove.textContent = 'Delete';
+          remove.onclick = () => deleteShow(show.id);
+          li.appendChild(remove);
+          if (show.url) {
+            const link = document.createElement('a');
+            link.href = show.url; link.target = '_blank'; link.rel = 'noopener noreferrer';
+            link.textContent = ' View on TVmaze';
+            li.appendChild(link);
+          }
+          list.appendChild(li);
+        });
+      } catch (error) {
+        list.appendChild(makeText('li', error.message));
+      }
+    }
+
+    async function addShow(showFromSearch) {
+      const show = showFromSearch || {
+        title: document.getElementById('title').value.trim(),
+        genres: document.getElementById('genres').value.split(',').map(x => x.trim()).filter(Boolean),
+        status: document.getElementById('status').value.trim() || 'Unknown',
+        premiered: document.getElementById('premiered').value,
+        rating: document.getElementById('rating').value === '' ? null : Number(document.getElementById('rating').value),
+        network: document.getElementById('network').value.trim() || 'Unknown',
+        tvmazeId: null, image: null, url: null, summary: ''
+      };
+      try {
+        await request('/api/shows', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(show) });
+        if (!showFromSearch) {
+          ['title','genres','status','premiered','rating','network'].forEach(id => document.getElementById(id).value = '');
+        }
+        await loadShows();
+        if (showFromSearch) await lookup();
+      } catch (error) { alert(error.message); }
+    }
+
+    async function deleteShow(id) {
+      if (!confirm('Delete this TV show from your library?')) return;
+      try { await request('/api/shows/' + encodeURIComponent(id), { method: 'DELETE' }); await loadShows(); }
+      catch (error) { alert(error.message); }
+    }
+
+    async function lookup() {
+      const query = document.getElementById('search').value.trim();
+      const list = document.getElementById('results');
+      list.replaceChildren();
+      if (!query) { list.appendChild(makeText('li', 'Enter a TV show title to search.')); return; }
+      list.appendChild(makeText('li', 'Searching TVmaze...'));
+      try {
+        const results = await request('/api/lookup?title=' + encodeURIComponent(query));
+        list.replaceChildren();
+        if (!results.length) { list.appendChild(makeText('li', 'No TV shows found.')); return; }
+        results.forEach(show => {
+          const li = document.createElement('li');
+          li.appendChild(makeText('strong', show.title));
+          li.appendChild(makeText('p', `Genres: ${(show.genres || []).join(', ') || 'Unknown'} | Status: ${show.status || 'Unknown'} | Premiered: ${show.premiered || 'Unknown'} | Rating: ${show.rating ?? 'Not rated'} | Network: ${show.network || 'Unknown'}`));
+          if (show.image) {
+            const img = document.createElement('img'); img.src = show.image; img.alt = `${show.title} poster`; img.width = 100; img.loading = 'lazy';
+            li.appendChild(img);
+          }
+          const summary = document.createElement('p');
+          const template = document.createElement('template'); template.innerHTML = show.summary || '';
+          summary.textContent = template.content.textContent.trim();
+          li.appendChild(summary);
+          const add = document.createElement('button'); add.textContent = 'Add to my TV shows'; add.onclick = () => addShow(show);
+          li.append(' ', add, ' ');
+          if (show.url) { const link = document.createElement('a'); link.href = show.url; link.target = '_blank'; link.rel = 'noopener noreferrer'; link.textContent = 'View on TVmaze'; li.appendChild(link); }
+          list.appendChild(li);
+        });
+      } catch (error) { list.replaceChildren(makeText('li', error.message)); }
+    }
+
+    loadShows();
+  </script>
+</body>
+</html>
