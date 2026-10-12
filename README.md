@@ -19,7 +19,7 @@ npm install
 npm start
 ```
 
-Open http://localhost:3000.
+Open http://localhost:3001.
 
 ## API routes
 - `GET /api/shows` — list saved shows
