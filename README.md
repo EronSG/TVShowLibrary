@@ -31,5 +31,5 @@ Open http://localhost:3000.
 
 No TVmaze API key is needed for public show search. The application credits TVmaze in its UI; see the [TVmaze API terms](https://www.tvmaze.com/api) for attribution and licensing details.
 
-## Interface style
-The HTML pages intentionally use the same simple, unstyled layout as the original Book Library source: headings, inputs, buttons, unordered lists, and a separate `edit.html` page. The fields and API calls have been converted to TV show data while preserving that structure.
+## Data note
+This version uses a new `shows.json` file rather than `library.json`. The old book records are intentionally not treated as TV shows. Keep your original ZIP as a backup if you need those records later.
